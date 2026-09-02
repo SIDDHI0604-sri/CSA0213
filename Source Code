@@ -1,0 +1,1229 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#define MAX_CUSTOMERS 100
+#define MAX_VEHICLES 100
+#define MAX_SERVICES 500
+
+struct Date {
+    int day;
+    int month;
+    int year;
+};
+
+struct Customer {
+    int customerId;
+    char name[50];
+    char phone[15];
+    char address[100];
+};
+
+struct Vehicle {
+    int vehicleId;
+    char registrationNo[20];
+    char model[50];
+    int customerId;
+    int totalServices;
+};
+
+struct Component {
+    char componentName[50];
+    struct Date replacementDate;
+    int serviceInterval;
+    struct Date nextReplacementDate;
+};
+
+struct Service {
+    int serviceId;
+    char registrationNo[20];
+    struct Date serviceDate;
+    char serviceType[50];
+
+    int componentCount;
+    struct Component *components;
+};
+
+struct Customer customers[MAX_CUSTOMERS];
+struct Vehicle vehicles[MAX_VEHICLES];
+struct Service services[MAX_SERVICES];
+
+int customerCount = 0;
+int vehicleCount = 0;
+int serviceCount = 0;
+
+void addCustomer();
+void addVehicle();
+void recordService();
+void displayServiceHistory();
+void checkUpcomingReplacements();
+void generateServiceReport();
+void displayAllVehicles();
+
+void saveRecords();
+void loadRecords();
+
+int findCustomerById(int id);
+int findVehicleByRegistration(char regNo[]);
+int isValidDate(struct Date d);
+
+struct Date calculateNextDate(struct Date date, int days);
+int dateDifference(struct Date d1, struct Date d2);
+int dateToDays(struct Date d);
+
+void displayDate(struct Date d);
+void clearInputBuffer();
+
+void clearInputBuffer()
+{
+    int c;
+
+    while ((c = getchar()) != '\n' && c != EOF)
+        ;
+}
+
+int findCustomerById(int id)
+{
+    int i;
+
+    for (i = 0; i < customerCount; i++)
+    {
+        if (customers[i].customerId == id)
+            return i;
+    }
+
+    return -1;
+}
+
+int findVehicleByRegistration(char regNo[])
+{
+    int i;
+
+    for (i = 0; i < vehicleCount; i++)
+    {
+        if (strcmp(vehicles[i].registrationNo, regNo) == 0)
+            return i;
+    }
+
+    return -1;
+}
+
+int isValidDate(struct Date d)
+{
+    int daysInMonth[] =
+    {
+        0, 31, 28, 31, 30, 31, 30,
+        31, 31, 30, 31, 30, 31
+    };
+
+    if (d.year < 2000)
+        return 0;
+
+    if (d.month < 1 || d.month > 12)
+        return 0;
+
+    if (d.month == 2 &&
+        ((d.year % 400 == 0) ||
+         (d.year % 4 == 0 && d.year % 100 != 0)))
+    {
+        daysInMonth[2] = 29;
+    }
+
+    if (d.day < 1 || d.day > daysInMonth[d.month])
+        return 0;
+
+    return 1;
+}
+
+void displayDate(struct Date d)
+{
+    printf("%02d/%02d/%04d", d.day, d.month, d.year);
+}
+
+
+int dateToDays(struct Date d)
+{
+    int y;
+    int totalDays = 0;
+    int daysInMonth[] =
+    {
+        31, 28, 31, 30, 31, 30,
+        31, 31, 30, 31, 30, 31
+    };
+
+    for (y = 1; y < d.year; y++)
+    {
+        if ((y % 400 == 0) ||
+            (y % 4 == 0 && y % 100 != 0))
+        {
+            totalDays += 366;
+        }
+        else
+        {
+            totalDays += 365;
+        }
+    }
+
+    for (y = 0; y < d.month - 1; y++)
+    {
+        totalDays += daysInMonth[y];
+
+        if (y == 1 &&
+            ((d.year % 400 == 0) ||
+             (d.year % 4 == 0 && d.year % 100 != 0)))
+        {
+            totalDays++;
+        }
+    }
+
+    totalDays += d.day;
+
+    return totalDays;
+}
+
+int dateDifference(struct Date d1, struct Date d2)
+{
+    return dateToDays(d2) - dateToDays(d1);
+}
+
+struct Date calculateNextDate(struct Date date, int days)
+{
+    struct Date result = date;
+
+    while (days > 0)
+    {
+        int daysInMonth;
+
+        if (result.month == 2)
+        {
+            if ((result.year % 400 == 0) ||
+                (result.year % 4 == 0 && result.year % 100 != 0))
+            {
+                daysInMonth = 29;
+            }
+            else
+            {
+                daysInMonth = 28;
+            }
+        }
+        else if (result.month == 4 ||
+                 result.month == 6 ||
+                 result.month == 9 ||
+                 result.month == 11)
+        {
+            daysInMonth = 30;
+        }
+        else
+        {
+            daysInMonth = 31;
+        }
+
+        result.day++;
+
+        if (result.day > daysInMonth)
+        {
+            result.day = 1;
+            result.month++;
+
+            if (result.month > 12)
+            {
+                result.month = 1;
+                result.year++;
+            }
+        }
+
+        days--;
+    }
+
+    return result;
+}
+
+void addCustomer()
+{
+    struct Customer *c;
+
+    if (customerCount >= MAX_CUSTOMERS)
+    {
+        printf("\nCustomer storage is full!\n");
+        return;
+    }
+
+    c = &customers[customerCount];
+
+    c->customerId = 1001 + customerCount;
+
+    printf("\n========== ADD CUSTOMER ==========\n");
+
+    printf("Generated Customer ID: %d\n", c->customerId);
+
+    printf("Enter customer name: ");
+    fgets(c->name, sizeof(c->name), stdin);
+    c->name[strcspn(c->name, "\n")] = '\0';
+
+    printf("Enter phone number: ");
+    fgets(c->phone, sizeof(c->phone), stdin);
+    c->phone[strcspn(c->phone, "\n")] = '\0';
+
+    printf("Enter address: ");
+    fgets(c->address, sizeof(c->address), stdin);
+    c->address[strcspn(c->address, "\n")] = '\0';
+
+    customerCount++;
+
+    printf("\nCustomer added successfully!\n");
+}
+
+void addVehicle()
+{
+    struct Vehicle *v;
+    int customerId;
+    char regNo[20];
+
+    if (vehicleCount >= MAX_VEHICLES)
+    {
+        printf("\nVehicle storage is full!\n");
+        return;
+    }
+
+    printf("\n========== ADD MOTORBIKE ==========\n");
+
+    printf("Enter Customer ID: ");
+    scanf("%d", &customerId);
+    clearInputBuffer();
+
+    if (findCustomerById(customerId) == -1)
+    {
+        printf("\nCustomer ID not found!\n");
+        return;
+    }
+
+    printf("Enter registration number: ");
+    fgets(regNo, sizeof(regNo), stdin);
+    regNo[strcspn(regNo, "\n")] = '\0';
+
+    if (findVehicleByRegistration(regNo) != -1)
+    {
+        printf("\nThis motorbike is already registered!\n");
+        return;
+    }
+
+    v = &vehicles[vehicleCount];
+
+    v->vehicleId = 2001 + vehicleCount;
+    v->customerId = customerId;
+    v->totalServices = 0;
+
+    strcpy(v->registrationNo, regNo);
+
+    printf("Enter motorbike model: ");
+    fgets(v->model, sizeof(v->model), stdin);
+    v->model[strcspn(v->model, "\n")] = '\0';
+
+    vehicleCount++;
+
+    printf("\nMotorbike added successfully!\n");
+    printf("Vehicle ID: %d\n", v->vehicleId);
+}
+
+void recordService()
+{
+    struct Service *s;
+    int vehicleIndex;
+    int i;
+
+    if (serviceCount >= MAX_SERVICES)
+    {
+        printf("\nService storage is full!\n");
+        return;
+    }
+
+    s = &services[serviceCount];
+
+    printf("\n========== RECORD SERVICE ==========\n");
+
+    printf("Enter registration number: ");
+    fgets(s->registrationNo,
+          sizeof(s->registrationNo), stdin);
+
+    s->registrationNo[
+        strcspn(s->registrationNo, "\n")
+    ] = '\0';
+
+    vehicleIndex =
+        findVehicleByRegistration(s->registrationNo);
+
+    if (vehicleIndex == -1)
+    {
+        printf("\nMotorbike not found!\n");
+        return;
+    }
+
+    s->serviceId = 3001 + serviceCount;
+
+    printf("Enter service date (DD MM YYYY): ");
+    scanf("%d %d %d",
+          &s->serviceDate.day,
+          &s->serviceDate.month,
+          &s->serviceDate.year);
+
+    clearInputBuffer();
+
+    if (!isValidDate(s->serviceDate))
+    {
+        printf("\nInvalid date entered!\n");
+        return;
+    }
+
+    printf("Enter service type: ");
+    fgets(s->serviceType,
+          sizeof(s->serviceType), stdin);
+
+    s->serviceType[
+        strcspn(s->serviceType, "\n")
+    ] = '\0';
+
+    printf("How many components were replaced? ");
+    scanf("%d", &s->componentCount);
+    clearInputBuffer();
+
+    if (s->componentCount <= 0)
+    {
+        printf("\nNo components were added.\n");
+
+        s->componentCount = 0;
+        s->components = NULL;
+    }
+    else
+    {
+        s->components =
+            (struct Component *)malloc(
+                s->componentCount *
+                sizeof(struct Component)
+            );
+
+        if (s->components == NULL)
+        {
+            printf("\nMemory allocation failed!\n");
+            s->componentCount = 0;
+            return;
+        }
+
+        for (i = 0; i < s->componentCount; i++)
+        {
+            printf("\n--- Component %d ---\n", i + 1);
+
+            printf("Enter component name: ");
+            fgets(s->components[i].componentName,
+                  sizeof(s->components[i].componentName),
+                  stdin);
+
+            s->components[i].componentName[
+                strcspn(
+                    s->components[i].componentName,
+                    "\n"
+                )
+            ] = '\0';
+
+            printf("Enter replacement date (DD MM YYYY): ");
+
+            scanf("%d %d %d",
+                  &s->components[i].replacementDate.day,
+                  &s->components[i].replacementDate.month,
+                  &s->components[i].replacementDate.year);
+
+            clearInputBuffer();
+
+            if (!isValidDate(
+                    s->components[i].replacementDate))
+            {
+                printf("Invalid date. Using service date.\n");
+
+                s->components[i].replacementDate =
+                    s->serviceDate;
+            }
+
+            printf("Enter service interval in days: ");
+            scanf("%d",
+                  &s->components[i].serviceInterval);
+
+            clearInputBuffer();
+
+            if (s->components[i].serviceInterval <= 0)
+            {
+                s->components[i].serviceInterval = 30;
+                printf("Invalid interval. Defaulted to 30 days.\n");
+            }
+
+            s->components[i].nextReplacementDate =
+                calculateNextDate(
+                    s->components[i].replacementDate,
+                    s->components[i].serviceInterval
+                );
+        }
+    }
+
+    vehicles[vehicleIndex].totalServices++;
+
+    serviceCount++;
+
+    printf("\n=====\n");
+    printf("Service recorded successfully!\n");
+    printf("Service ID: %d\n", s->serviceId);
+    printf("Next replacement dates have been calculated.\n");
+    Printf(=\n");
+}
+
+void displayServiceHistory()
+{
+    char regNo[20];
+    int vehicleIndex;
+    int customerIndex;
+    int i, j;
+    int found = 0;
+
+    printf("\n========== SERVICE HISTORY ==========\n");
+
+    printf("Enter registration number: ");
+    fgets(regNo, sizeof(regNo), stdin);
+
+    regNo[strcspn(regNo, "\n")] = '\0';
+
+    vehicleIndex =
+        findVehicleByRegistration(regNo);
+
+    if (vehicleIndex == -1)
+    {
+        printf("\nMotorbike not found!\n");
+        return;
+    }
+
+    customerIndex =
+        findCustomerById(
+            vehicles[vehicleIndex].customerId
+        );
+
+    printf("\n====================================================\n");
+    printf("              COMPLETE SERVICE HISTORY\n");
+    printf("====================================================\n");
+
+    printf("Customer Name   : %s\n",
+           customers[customerIndex].name);
+
+    printf("Phone Number    : %s\n",
+           customers[customerIndex].phone);
+
+    printf("Registration No : %s\n",
+           vehicles[vehicleIndex].registrationNo);
+
+    printf("Vehicle Model   : %s\n",
+           vehicles[vehicleIndex].model);
+
+    printf("Total Services  : %d\n",
+           vehicles[vehicleIndex].totalServices);
+
+    printf("====================================================\n");
+
+    for (i = 0; i < serviceCount; i++)
+    {
+        if (strcmp(
+                services[i].registrationNo,
+                regNo) == 0)
+        {
+            found = 1;
+
+            printf("\nService ID   : %d\n",
+                   services[i].serviceId);
+
+            printf("Service Date : ");
+            displayDate(services[i].serviceDate);
+
+            printf("\nService Type : %s\n",
+                   services[i].serviceType);
+
+            printf("-----------------------------------------------\n");
+            printf("Components Replaced:\n");
+
+            for (j = 0;
+                 j < services[i].componentCount;
+                 j++)
+            {
+                printf("\nComponent %d\n", j + 1);
+
+                printf("Name               : %s\n",
+                       services[i]
+                           .components[j]
+                           .componentName);
+
+                printf("Replacement Date    : ");
+
+                displayDate(
+                    services[i]
+                        .components[j]
+                        .replacementDate
+                );
+
+                printf("\nService Interval    : %d days\n",
+                       services[i]
+                           .components[j]
+                           .serviceInterval);
+
+                printf("Next Replacement    : ");
+
+                displayDate(
+                    services[i]
+                        .components[j]
+                        .nextReplacementDate
+                );
+
+                printf("\n");
+            }
+
+            printf("-----------------------------------------------\n");
+        }
+    }
+
+    if (!found)
+    {
+        printf("\nNo service records found for this motorbike.\n");
+    }
+
+    printf("\n====================================================\n");
+}
+
+
+void checkUpcomingReplacements()
+{
+    struct Date checkDate;
+    int reminderDays;
+    int i, j;
+    int difference;
+    int found = 0;
+
+    printf("\n========== REPLACEMENT REMINDER ==========\n");
+
+    printf("Enter checking date (DD MM YYYY): ");
+
+    scanf("%d %d %d",
+          &checkDate.day,
+          &checkDate.month,
+          &checkDate.year);
+
+    if (!isValidDate(checkDate))
+    {
+        printf("\nInvalid checking date!\n");
+        clearInputBuffer();
+        return;
+    }
+
+    printf("Enter reminder period in days: ");
+    scanf("%d", &reminderDays);
+
+    clearInputBuffer();
+
+    if (reminderDays < 0)
+    {
+        printf("\nInvalid reminder period!\n");
+        return;
+    }
+
+    printf("\n====================================================\n");
+    printf("             COMPONENT REPLACEMENT REMINDER\n");
+    printf("====================================================\n");
+
+    for (i = 0; i < serviceCount; i++)
+    {
+        for (j = 0;
+             j < services[i].componentCount;
+             j++)
+        {
+            difference =
+                dateDifference(
+                    checkDate,
+                    services[i]
+                        .components[j]
+                        .nextReplacementDate
+                );
+
+            if (difference < 0)
+            {
+                printf("\nOVERDUE\n");
+                printf("Vehicle       : %s\n",
+                       services[i].registrationNo);
+
+                printf("Component     : %s\n",
+                       services[i]
+                           .components[j]
+                           .componentName);
+
+                printf("Due Date      : ");
+
+                displayDate(
+                    services[i]
+                        .components[j]
+                        .nextReplacementDate
+                );
+
+                printf("\nDays Overdue  : %d\n",
+                       -difference);
+
+                printf("-----------------------------------------------\n");
+
+                found = 1;
+            }
+            else if (difference <= reminderDays)
+            {
+                printf("\nDUE SOON\n");
+
+                printf("Vehicle       : %s\n",
+                       services[i].registrationNo);
+
+                printf("Component     : %s\n",
+                       services[i]
+                           .components[j]
+                           .componentName);
+
+                printf("Due Date      : ");
+
+                displayDate(
+                    services[i]
+                        .components[j]
+                        .nextReplacementDate
+                );
+
+                printf("\nDays Remaining: %d\n",
+                       difference);
+
+                printf("-----------------------------------------------\n");
+
+                found = 1;
+            }
+        }
+    }
+
+    if (!found)
+    {
+        printf("\nNo components are due within the specified period.\n");
+    }
+
+    printf("\n====================================================\n");
+}
+
+void generateServiceReport()
+{
+    char componentNames[MAX_SERVICES][50];
+    int componentCounts[MAX_SERVICES];
+
+    int uniqueCount = 0;
+    int i, j;
+    int found;
+    int tempCount;
+    char tempName[50];
+
+    int upcomingVehicles = 0;
+
+    struct Date today;
+
+    printf("\n========== SERVICE ANALYSIS REPORT ==========\n");
+
+    if (serviceCount == 0)
+    {
+        printf("\nNo service data available for analysis.\n");
+        return;
+    }
+
+    for (i = 0; i < serviceCount; i++)
+    {
+        for (j = 0;
+             j < services[i].componentCount;
+             j++)
+        {
+            int k;
+
+            found = 0;
+
+            for (k = 0; k < uniqueCount; k++)
+            {
+                if (strcmp(
+                        componentNames[k],
+                        services[i].components[j]
+                            .componentName
+                    ) == 0)
+                {
+                    componentCounts[k]++;
+                    found = 1;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                strcpy(
+                    componentNames[uniqueCount],
+                    services[i].components[j]
+                        .componentName
+                );
+
+                componentCounts[uniqueCount] = 1;
+                uniqueCount++;
+            }
+        }
+    }
+
+    for (i = 0; i < uniqueCount - 1; i++)
+    {
+        for (j = i + 1; j < uniqueCount; j++)
+        {
+            if (componentCounts[j] >
+                componentCounts[i])
+            {
+                tempCount = componentCounts[i];
+                componentCounts[i] =
+                    componentCounts[j];
+                componentCounts[j] =
+                    tempCount;
+
+                strcpy(tempName,
+                       componentNames[i]);
+
+                strcpy(componentNames[i],
+                       componentNames[j]);
+
+                strcpy(componentNames[j],
+                       tempName);
+            }
+        }
+    }
+
+    printf("\n-----------------------------------------------\n");
+    printf("Frequently Replaced Components\n");
+    printf("-----------------------------------------------\n");
+
+    printf("%-25s %s\n",
+           "Component",
+           "Replacements");
+
+    for (i = 0; i < uniqueCount; i++)
+    {
+        printf("%-25s %d\n",
+               componentNames[i],
+               componentCounts[i]);
+    }
+
+    printf("\nEnter checking date for upcoming service "
+           "(DD MM YYYY): ");
+
+    scanf("%d %d %d",
+          &today.day,
+          &today.month,
+          &today.year);
+
+    clearInputBuffer();
+
+    if (!isValidDate(today))
+    {
+        printf("\nInvalid date!\n");
+        return;
+    }
+
+    printf("\n-----------------------------------------------\n");
+    printf("Vehicles Requiring Upcoming Service\n");
+    printf("-----------------------------------------------\n");
+
+    for (i = 0; i < serviceCount; i++)
+    {
+        int j;
+
+        for (j = 0;
+             j < services[i].componentCount;
+             j++)
+        {
+            int difference;
+
+            difference =
+                dateDifference(
+                    today,
+                    services[i]
+                        .components[j]
+                        .nextReplacementDate
+                );
+
+            if (difference <= 30)
+            {
+                printf("Vehicle    : %s\n",
+                       services[i].registrationNo);
+
+                printf("Component  : %s\n",
+                       services[i]
+                           .components[j]
+                           .componentName);
+
+                printf("Due Date   : ");
+
+                displayDate(
+                    services[i]
+                        .components[j]
+                        .nextReplacementDate
+                );
+
+                printf("\n");
+
+                if (difference >= 0)
+                {
+                    printf("Status     : Due within %d days\n",
+                           difference);
+                }
+                else
+                {
+                    printf("Status     : Overdue\n");
+                }
+
+                printf("-----------------------------------------------\n");
+
+                upcomingVehicles++;
+            }
+        }
+    }
+
+    if (upcomingVehicles == 0)
+    {
+        printf("No vehicles require upcoming service.\n");
+    }
+
+    printf("\n===============================================\n");
+}
+
+
+void displayAllVehicles()
+{
+    int i;
+    int customerIndex;
+
+    printf("\n========== ALL MOTORBIKES ==========\n");
+
+    if (vehicleCount == 0)
+    {
+        printf("\nNo vehicles available.\n");
+        return;
+    }
+
+    for (i = 0; i < vehicleCount; i++)
+    {
+        customerIndex =
+            findCustomerById(
+                vehicles[i].customerId
+            );
+
+        printf("\n-------------------------------------------\n");
+
+        printf("Vehicle ID       : %d\n",
+               vehicles[i].vehicleId);
+
+        printf("Registration No  : %s\n",
+               vehicles[i].registrationNo);
+
+        printf("Model            : %s\n",
+               vehicles[i].model);
+
+        if (customerIndex != -1)
+        {
+            printf("Customer         : %s\n",
+                   customers[customerIndex].name);
+        }
+
+        printf("Total Services   : %d\n",
+               vehicles[i].totalServices);
+    }
+
+    printf("-------------------------------------------\n");
+}
+
+void saveRecords()
+{
+    FILE *fp;
+    int i;
+    fp = fopen("customers.dat", "wb");
+
+    if (fp == NULL)
+    {
+        printf("\nUnable to open customer file!\n");
+        return;
+    }
+
+    fwrite(&customerCount,
+           sizeof(int),
+           1,
+           fp);
+
+    fwrite(customers,
+           sizeof(struct Customer),
+           customerCount,
+           fp);
+
+    fclose(fp);
+
+    fp = fopen("vehicles.dat", "wb");
+
+    if (fp == NULL)
+    {
+        printf("\nUnable to open vehicle file!\n");
+        return;
+    }
+
+    fwrite(&vehicleCount,
+           sizeof(int),
+           1,
+           fp);
+
+    fwrite(vehicles,
+           sizeof(struct Vehicle),
+           vehicleCount,
+           fp);
+
+    fclose(fp);
+
+    fp = fopen("services.dat", "wb");
+
+    if (fp == NULL)
+    {
+        printf("\nUnable to open service file!\n");
+        return;
+    }
+
+    fwrite(&serviceCount,
+           sizeof(int),
+           1,
+           fp);
+
+    for (i = 0; i < serviceCount; i++)
+    {
+        fwrite(&services[i],
+               sizeof(struct Service),
+               1,
+               fp);
+
+        fwrite(&services[i].componentCount,
+               sizeof(int),
+               1,
+               fp);
+
+        if (services[i].componentCount > 0)
+        {
+            fwrite(
+                services[i].components,
+                sizeof(struct Component),
+                services[i].componentCount,
+                fp
+            );
+        }
+    }
+
+    fclose(fp);
+
+    printf("\nAll records saved successfully!\n");
+}
+
+void loadRecords()
+{
+    FILE *fp;
+    int i;
+
+    /* Load customers */
+
+    fp = fopen("customers.dat", "rb");
+
+    if (fp != NULL)
+    {
+        fread(&customerCount,
+              sizeof(int),
+              1,
+              fp);
+
+        fread(customers,
+              sizeof(struct Customer),
+              customerCount,
+              fp);
+
+        fclose(fp);
+    }
+
+    fp = fopen("vehicles.dat", "rb");
+
+    if (fp != NULL)
+    {
+        fread(&vehicleCount,
+              sizeof(int),
+              1,
+              fp);
+
+        fread(vehicles,
+              sizeof(struct Vehicle),
+              vehicleCount,
+              fp);
+
+        fclose(fp);
+    }
+
+    for (i = 0; i < serviceCount; i++)
+    {
+        if (services[i].components != NULL)
+        {
+            free(services[i].components);
+            services[i].components = NULL;
+        }
+    }
+
+
+    fp = fopen("services.dat", "rb");
+
+    if (fp != NULL)
+    {
+        fread(&serviceCount,
+              sizeof(int),
+              1,
+              fp);
+
+        for (i = 0; i < serviceCount; i++)
+        {
+            fread(&services[i],
+                  sizeof(struct Service),
+                  1,
+                  fp);
+
+                    services[i].components = NULL;
+
+            fread(&services[i].componentCount,
+                  sizeof(int),
+                  1,
+                  fp);
+
+            if (services[i].componentCount > 0)
+            {
+                services[i].components =
+                    (struct Component *)malloc(
+                        services[i].componentCount *
+                        sizeof(struct Component)
+                    );
+
+                if (services[i].components == NULL)
+                {
+                    printf("\nMemory allocation failed "
+                           "while loading records!\n");
+
+                    fclose(fp);
+                    return;
+                }
+
+                fread(
+                    services[i].components,
+                    sizeof(struct Component),
+                    services[i].componentCount,
+                    fp
+                );
+            }
+        }
+
+        fclose(fp);
+
+        printf("\nRecords loaded successfully!\n");
+    }
+    else
+    {
+        printf("\nNo previous service records found.\n");
+    }
+}
+
+int main()
+{
+    int choice;
+    int i;
+
+    loadRecords();
+
+    do
+    {
+        printf("\n\n");
+        printf("====================================================\n");
+        printf("       VEHICLE SERVICE MANAGEMENT SYSTEM\n");
+        printf("====================================================\n");
+
+        printf("1. Add Customer\n");
+        printf("2. Add Motorbike\n");
+        printf("3. Record Service Visit\n");
+        printf("4. Search and Display Service History\n");
+        printf("5. Check Upcoming Component Replacement\n");
+        printf("6. Generate Service Analysis Report\n");
+        printf("7. Display All Motorbikes\n");
+        printf("8. Save Records to File\n");
+        printf("9. Load Records from File\n");
+        printf("10. Exit\n");
+
+        printf("----------------------------------------------------\n");
+        printf("Enter your choice: ");
+
+        scanf("%d", &choice);
+        clearInputBuffer();
+
+        switch (choice)
+        {
+            case 1:
+                addCustomer();
+                break;
+
+            case 2:
+                addVehicle();
+                break;
+
+            case 3:
+                recordService();
+                break;
+
+            case 4:
+                displayServiceHistory();
+                break;
+
+            case 5:
+                checkUpcomingReplacements();
+                break;
+
+            case 6:
+                generateServiceReport();
+                break;
+
+            case 7:
+                displayAllVehicles();
+                break;
+
+            case 8:
+                saveRecords();
+                break;
+
+            case 9:
+                loadRecords();
+                break;
+
+            case 10:
+
+                saveRecords();
+                for (i = 0; i < serviceCount; i++)
+                {
+                    if (services[i].components != NULL)
+                    {
+                        free(services[i].components);
+                        services[i].components = NULL;
+                    }
+                }
+
+                printf("\nThank you for using "
+                       "Vehicle Service Management System!\n");
+
+                break;
+
+            default:
+                printf("\nInvalid choice! "
+                       "Please enter a number from 1 to 10.\n");
+        }
+
+    } while (choice != 10);
+
+    return 0;
+}
